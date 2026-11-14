@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cautious Bite | by Xector</title>
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#090d16">
+    <style>
+        :root { --bg: #090d16; --card: #131c31; --border: #1e293b; --accent: #38bdf8; --text: #f8fafc; --muted: #94a3b8; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 16px; display: flex; justify-content: center; }
+        .container { max-width: 480px; width: 100%; }
+        header { text-align: center; margin-bottom: 20px; }
+        h1 { margin: 0; font-size: 1.8rem; color: var(--accent); }
+        .brand { font-size: 0.75rem; letter-spacing: 2.5px; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
+        
+        .card-box { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+        label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        input[type="text"], textarea { width: 100%; padding: 14px; border-radius: 12px; border: 1px solid var(--border); background: #0a1120; color: white; font-size: 1rem; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        input[type="text"]:focus, textarea:focus { border-color: var(--accent); }
+        textarea { height: 100px; resize: vertical; }
+        
+        button { width: 100%; padding: 14px; margin-top: 12px; border: none; border-radius: 12px; background: #0284c7; color: white; font-size: 1rem; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        button:hover { background: #0369a1; }
+        
+        .camera-btn { background: #1e293b; border: 1px dashed var(--accent); color: var(--accent); margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        
+        .result-card { margin-top: 20px; padding: 18px; border-radius: 14px; background: var(--card); border-left: 6px solid var(--accent); }
+        .GREEN { border-left-color: #22c55e; }
+        .YELLOW { border-left-color: #eab308; }
+        .RED { border-left-color: #ef4444; }
+        ul { padding-left: 18px; margin: 10px 0 0 0; }
+        li { margin-bottom: 8px; font-size: 0.9rem; color: #cbd5e1; }
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; margin-bottom: 8px; }
+        .badge.GREEN { background: rgba(34,197,94,0.15); color: #22c55e; }
+        .badge.YELLOW { background: rgba(234,179,8,0.15); color: #eab308; }
+        .badge.RED { background: rgba(239,68,68,0.15); color: #ef4444; }
+        #installBtn { display: none; background: #10b981; margin-bottom: 16px; }
+        .divider { text-align: center; color: var(--muted); font-size: 0.8rem; margin: 16px 0; text-transform: uppercase; letter-spacing: 1px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="brand">Xector Labs</div>
+            <h1>Cautious Bite</h1>
+            <p style="color:var(--muted); font-size:0.85rem; margin-top:4px;">Smart additive & food scanner for families</p>
+        </header>
+
+        <button id="installBtn">📲 Install Cautious Bite App</button>
+
+        <!-- Search Product Form -->
+        <div class="card-box">
+            <form method="POST">
+                <label>Search Product Name / Brand</label>
+                <input type="text" name="search_query" placeholder="e.g., Maggi Noodles, Oreo, Kurkure..." value="{{ search_query }}">
+                <button type="submit">Search Database</button>
+            </form>
+
+            <div class="divider">or manual entry</div>
+
+            <!-- Camera & Manual Input -->
+            <form method="POST">
+                <label>Snap Label Photo / Paste Ingredients</label>
+                <!-- Camera input allows phone users to take a photo directly -->
+                <input type="file" accept="image/*" capture="environment" id="cameraInput" style="display:none;" onchange="handleImage(this)">
+                <button type="button" class="camera-btn" onclick="document.getElementById('cameraInput').click()">📸 Snap Food Label Photo</button>
+                
+                <textarea name="manual_ingredients" placeholder="Paste ingredients list here if product isn't in search..."></textarea>
+                <button type="submit" style="background:#334155;">Analyze Ingredients</button>
+            </form>
+        </div>
+
+        {% if result %}
+        <div class="result-card {{ result.status }}">
+            {% if result.product_name %}
+            <div style="font-size: 0.8rem; color: var(--accent); font-weight: bold; margin-bottom: 4px;">PRODUCT: {{ result.product_name }}</div>
+            {% endif %}
+            <div class="badge {{ result.status }}">{{ result.status }}</div>
+            <div style="font-weight: 600; margin-bottom: 8px;">{{ result.summary }}</div>
+            
+            {% if result.flagged %}
+            <ul>
+                {% for item in result.flagged %}
+                <li><strong>{{ item.name }}:</strong> {{ item.reason }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/static/service-worker.js');
+        }
+        let deferredPrompt;
+        const installBtn = document.getElementById('installBtn');
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            installBtn.style.display = 'block';
+        });
+        installBtn.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt = null;
+                installBtn.style.display = 'none';
+            }
+        });
+
+        function handleImage(input) {
+            if (input.files && input.files[0]) {
+                alert("Photo selected! (AI OCR text extraction can be plugged in here next). You can also type or paste ingredients below.");
+            }
+        }
+    </script>
+</body>
+</html>
